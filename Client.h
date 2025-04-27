@@ -8,6 +8,7 @@ public:
     void listClients();
     int selectClient();
     void clientDashboard(int clientId);  
+    void makePayment();
 };
  
 #endif

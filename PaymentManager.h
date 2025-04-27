@@ -4,7 +4,7 @@
 class PaymentManager {
 public:
     void viewPayments(int clientId);
-    void makePayment();
+    
 };
  
 #endif
