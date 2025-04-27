@@ -1,0 +1,95 @@
+-- database: ./mydb.db
+
+
+-- users Table
+CREATE table users(
+user_id INTEGER PRIMARY key AUTOINCREMENT,
+username TEXT UNIQUE,
+password TEXT,
+is_approve boolean
+);
+
+-- clients Table
+CREATE TABLE clients (
+    client_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_name TEXT,
+    last_name TEXT,
+    dob TEXT,   -- "yyyy-mm-dd"
+    email TEXT,
+    mobile TEXT,
+    gender TEXT,
+    tobacco BOOLEAN,
+    annual_income REAL,
+    city TEXT,
+    education TEXT,
+    occupation TEXT
+);
+
+
+-- Proposal table
+CREATE TABLE proposals (
+    proposal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER,
+    policy_type TEXT,
+    life_cover REAL,
+    cover_upto_age INTEGER,
+    basic_premium REAL,
+    accident_cover REAL,
+    comprehensive_cover REAL,
+    total_premium REAL,
+    payment_tenure TEXT,
+    payment_mode TEXT,
+    payment_method TEXT,
+    status TEXT,
+    created_at TEXT,
+    FOREIGN KEY(client_id) REFERENCES clients(client_id)
+);
+
+
+--policies table
+CREATE TABLE policies (
+    policy_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proposal_id INTEGER,
+    policy_number TEXT UNIQUE,
+    client_id INTEGER,
+    approved_by INTEGER,
+    start_date TEXT,
+    status TEXT,
+    FOREIGN KEY(proposal_id) REFERENCES proposals(proposal_id),
+    FOREIGN KEY(client_id) REFERENCES clients(client_id),
+    FOREIGN KEY(approved_by) REFERENCES users(user_id)
+);
+
+
+--cancled_policies table
+CREATE TABLE cancelled_policies (
+    cancel_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_id INTEGER,
+    client_id INTEGER,
+    reason TEXT,
+    cancel_date TEXT,
+    FOREIGN KEY(policy_id) REFERENCES policies(policy_id),
+    FOREIGN KEY(client_id) REFERENCES clients(client_id)
+);
+
+
+-- notifications Table
+CREATE TABLE notifications (
+    notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER,
+    message TEXT,
+    timestamp TEXT,
+    FOREIGN KEY(client_id) REFERENCES clients(client_id)
+);
+
+-- payment_records Table
+CREATE TABLE payment_records (
+    payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_id INTEGER,
+    amount_paid REAL,
+    payment_mode TEXT,
+    payment_method TEXT,
+    paid_on TEXT,
+    FOREIGN KEY(policy_id) REFERENCES policies(policy_id)
+);
+

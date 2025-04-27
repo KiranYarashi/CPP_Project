@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "build demo",
+        "type": "shell",
+        "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
+        "args": [
+          "-Wall",
+          "-Wextra",
+          "-g3",
+          "${workspaceFolder}/demo.cpp",
+          "-o",
+          "${workspaceFolder}/output/demo.exe",
+          "-lsqlite3"
+        ],
+        "problemMatcher": ["$gcc"],
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        }
+      }
+    ]
+  }
+  
