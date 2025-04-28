@@ -21,17 +21,54 @@ int calculateAge(const string &dob)
     }
     return age;
 }
-
 void Proposal::createProposal(int clientId)
 {
     cout << "\n=== Create New Proposal ===\n";
 
+    // Fetch client details from the database
+    sqlite3 *db = Database::getInstance()->getDB();
+    string sql = "SELECT first_name, last_name, dob, email, mobile, gender, tobacco, annual_income, city, education, occupation "
+                 "FROM clients WHERE client_id = " + to_string(clientId) + ";";
+
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK)
+    {
+        cerr << "Failed to fetch client details: " << sqlite3_errmsg(db) << endl;
+        return;
+    }
+
+    string firstName, lastName, dob, email, mobile, gender, city, education, occupation;
+    int tobacco;
+    double income;
+
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        firstName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        lastName = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 1));
+        dob = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 2));
+        email = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 3));
+        mobile = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 4));
+        gender = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 5));
+        tobacco = sqlite3_column_int(stmt, 6);
+        income = sqlite3_column_double(stmt, 7);
+        city = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 8));
+        education = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 9));
+        occupation = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 10));
+    }
+    else
+    {
+        cerr << "Client not found.\n";
+        sqlite3_finalize(stmt);
+        return;
+    }
+    sqlite3_finalize(stmt);
+
     // Step 1: Choose insurance type
     cout << "Select Insurance Type:\n";
-    cout << "1. Term Insurance\n";
-    cout << "2. Whole Life\n";
-    cout << "3. Money Back\n";
-    cout << "4. Endowment\n";
+    cout << "1. Term Insurance Policy\n";
+    cout << "2. Whole Life Insurance Policy\n";
+    cout << "3. Money Back Policy\n";
+    cout << "4. Endowment Policy\n";
     int policyType;
     cin >> policyType;
     string typeStr;
@@ -39,10 +76,10 @@ void Proposal::createProposal(int clientId)
     switch (policyType)
     {
     case 1:
-        typeStr = "Term";
+        typeStr = "Term Insurance";
         break;
     case 2:
-        typeStr = "Whole Life";
+        typeStr = "Whole Life Insurance";
         break;
     case 3:
         typeStr = "Money Back";
@@ -55,28 +92,10 @@ void Proposal::createProposal(int clientId)
         return;
     }
 
-    // Step 2: Collect user input
-    string firstName, lastName, dob, email, mobile, gender;
-    int tobacco;
-    double income, coverAmount;
+    // Step 2: Collect additional inputs
+    double coverAmount;
     int coverTillAge;
 
-    cout << "First Name: ";
-    cin >> firstName;
-    cout << "Last Name: ";
-    cin >> lastName;
-    cout << "DOB (YYYY-MM-DD): ";
-    cin >> dob;
-    cout << "Email: ";
-    cin >> email;
-    cout << "Mobile: ";
-    cin >> mobile;
-    cout << "Gender (M/F): ";
-    cin >> gender;
-    cout << "Consume Tobacco? (1=Yes, 0=No): ";
-    cin >> tobacco;
-    cout << "Annual Income: ";
-    cin >> income;
     cout << "Life Cover Amount (max 3 Cr): ";
     cin >> coverAmount;
     cout << "Cover till Age (max 100): ";
@@ -95,7 +114,28 @@ void Proposal::createProposal(int clientId)
     cout << "Calculated Age: " << age << "\n";
     cout << "Base Monthly Premium: Rs." << basePremium << "\n";
 
-    // Step 4: Accident Death Benefit
+    // Step 4: Adjust life cover and age
+    char adjust;
+    cout << "Do you want to adjust Life Cover Amount or Cover till Age? (Y/N): ";
+    cin >> adjust;
+    if (adjust == 'Y' || adjust == 'y')
+    {
+        cout << "New Life Cover Amount (max 3 Cr): ";
+        cin >> coverAmount;
+        cout << "New Cover till Age (max 100): ";
+        cin >> coverTillAge;
+
+        if (coverAmount > 30000000 || coverTillAge > 100)
+        {
+            cout << "Invalid input: Check max limits.\n";
+            return;
+        }
+
+        basePremium = (coverAmount / 1000) * (tobacco ? 2.0 : 1.0) * (100 - age) * 0.1;
+        cout << "Updated Base Monthly Premium: Rs." << basePremium << "\n";
+    }
+
+    // Step 5: Accident Death Benefit
     int adbCover;
     cout << "Enter Accident Death Benefit Cover (min Rs.25000 in multiples of Rs.50000): ";
     cin >> adbCover;
@@ -106,7 +146,7 @@ void Proposal::createProposal(int clientId)
         adbPremium = (adbCover / 50000) * 10; // Rs.10 per Rs.50K
     }
 
-    // Step 5: Comprehensive Care
+    // Step 6: Comprehensive Care
     int compCareCover;
     cout << "Enter Comprehensive Care Cover (min Rs.2L, in multiples of Rs.3L): ";
     cin >> compCareCover;
@@ -117,7 +157,7 @@ void Proposal::createProposal(int clientId)
         compPremium = 80 + ((compCareCover - 200000) / 300000) * 400;
     }
 
-    // Step 6: Total premium + tax
+    // Step 7: Total premium + tax
     double totalPremium = basePremium + adbPremium + compPremium;
     double tax = totalPremium * 0.18;
     double finalPremium = totalPremium + tax;
@@ -129,31 +169,34 @@ void Proposal::createProposal(int clientId)
     cout << "Tax (18%): Rs." << tax << endl;
     cout << "Final Monthly Premium: Rs." << finalPremium << endl;
 
-    // Step 7: Payment Tenure
+    // Step 8: Payment Tenure
     int payTillAge;
     cout << "Enter Pay till Age (options: 80/60/10/5): ";
     cin >> payTillAge;
 
-    string city, education, occupation;
-    cout << "City: ";
-    cin >> city;
-    cout << "Educational Qualification: ";
-    cin >> education;
-    cout << "Occupation: ";
-    cin >> occupation;
-
-    // Step 8: Payment Frequency
-    int frequency;
-    cout << "Payment Frequency (1-Monthly, 2-Half-Yearly, 3-Annually): ";
-    cin >> frequency;
-    double finalAdjustedPremium = finalPremium;
-
-    if (frequency == 2)
-        finalAdjustedPremium *= 0.9;
-    else if (frequency == 3)
-        finalAdjustedPremium *= 0.85;
-
-    // Step 9: Payment Mode
+              // Step 9: Payment Frequency
+        int frequency;
+        cout << "Payment Frequency (1-Monthly, 2-Half-Yearly, 3-Annually): ";
+        cin >> frequency;
+        double finalAdjustedPremium = finalPremium;
+        
+        if (frequency == 2) // Half-Yearly
+        {
+            finalAdjustedPremium *= 0.9; // 10% discount
+        }
+        else if (frequency == 3) // Annually
+        {
+            finalAdjustedPremium *= 0.85; // 15% discount
+        }
+        
+        // Display the updated premium summary
+        cout << "\n--- Updated Premium Summary Based on Payment Frequency ---\n";
+        cout << "Base Premium: Rs." << basePremium << endl;
+        cout << "ADB Premium: Rs." << adbPremium << endl;
+        cout << "Comprehensive Care Premium: Rs." << compPremium << endl;
+        cout << "Tax (18%): Rs." << tax << endl;
+        cout << "Final Adjusted Premium: Rs." << finalAdjustedPremium << endl;
+    // Step 10: Payment Mode
     int mode;
     cout << "Select Payment Mode:\n";
     cout << "1. Cash\n2. Credit Card\n3. Debit Card\n4. Net Banking\n5. UPI\n6. Paytm\n";
@@ -193,23 +236,26 @@ void Proposal::createProposal(int clientId)
         cout << "Proposal cancelled by user.\n";
         return;
     }
+
+    // Generate Proposal ID
+    srand(time(0));
+    int proposalId = rand() % 1000000 + 1;
+
     // Get current date as string
     time_t now = time(0);
     char createdAt[20];
     strftime(createdAt, sizeof(createdAt), "%Y-%m-%d", localtime(&now));
 
-    // Step 10: Save proposal to database
-    sqlite3 *db = Database::getInstance()->getDB();
-
-    string sql = "INSERT INTO proposals (client_id, policy_type, life_cover, cover_upto_age, basic_premium, "
-                 "accident_cover, comprehensive_cover, total_premium, payment_tenure, payment_mode, payment_method, "
-                 "status, created_at) VALUES (" +
-                 to_string(clientId) + ", '" + typeStr + "', " + to_string(coverAmount) + ", " +
-                 to_string(coverTillAge) + ", " + to_string(basePremium) + ", " +
-                 to_string(adbCover) + ", " + to_string(compCareCover) + ", " +
-                 to_string(finalAdjustedPremium) + ", '" + to_string(payTillAge) + "', '" +
-                 (frequency == 1 ? "Monthly" : (frequency == 2 ? "Half-Yearly" : "Annual")) + "', '" +
-                 modeStr + "', 'Pending', '" + createdAt + "');";
+    // Step 11: Save proposal to database
+    sql = "INSERT INTO proposals (proposal_id, client_id, policy_type, life_cover, cover_upto_age, basic_premium, "
+          "accident_cover, comprehensive_cover, total_premium, payment_tenure, payment_mode, payment_method, "
+          "status, created_at) VALUES (" +
+          to_string(proposalId) + ", " + to_string(clientId) + ", '" + typeStr + "', " +
+          to_string(coverAmount) + ", " + to_string(coverTillAge) + ", " + to_string(basePremium) + ", " +
+          to_string(adbCover) + ", " + to_string(compCareCover) + ", " +
+          to_string(finalAdjustedPremium) + ", '" + to_string(payTillAge) + "', '" +
+          (frequency == 1 ? "Monthly" : (frequency == 2 ? "Half-Yearly" : "Annual")) + "', '" +
+          modeStr + "', 'Pending', '" + createdAt + "');";
 
     char *errMsg;
     int rc = sqlite3_exec(db, sql.c_str(), nullptr, 0, &errMsg);
@@ -221,6 +267,6 @@ void Proposal::createProposal(int clientId)
     }
     else
     {
-        cout << "\nProposal submitted successfully! Awaiting approval.\n";
+        cout << "\nProposal submitted successfully! Proposal ID: " << proposalId << "\n";
     }
 }

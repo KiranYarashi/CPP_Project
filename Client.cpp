@@ -210,7 +210,7 @@ void Client::clientDashboard(int clientId)
             paymentManager.viewPayments(clientId);
             break;
         case 6:
-            makePayment();
+            makePayment(clientId);
             break;
         default:
             cout << "Invalid option. Please try again.\n";
@@ -223,7 +223,7 @@ void Client::clientDashboard(int clientId)
 
 #include <ctime>
 #include <string>
-void Client::makePayment() {
+void Client::makePayment(int clientId) { // Accept clientId as a parameter
     sqlite3* db = Database::getInstance()->getDB();
     
     int policyId;
@@ -232,28 +232,39 @@ void Client::makePayment() {
 
     cout << "---- Make Payment ----\n";
 
-    // Fetch active policies
-    string sql = "SELECT p.policy_id "
+    // Fetch policies for the selected client
+    string sql = "SELECT p.policy_id, p.policy_number, p.start_date, p.status, po.total_premium "
                  "FROM policies p "
-                 "WHERE p.status = 'Active';";
+                 "JOIN proposals po ON p.proposal_id = po.proposal_id "
+                 "WHERE p.client_id = ? AND p.status = 'Active';";
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        cerr << "Failed to fetch active policies: " << sqlite3_errmsg(db) << endl;
+        cerr << "Failed to fetch policies: " << sqlite3_errmsg(db) << endl;
         return;
     }
 
-    // Display active policies
-    cout << "Active Policies:\n";
+    sqlite3_bind_int(stmt, 1, clientId);
+
+
+    // Display policies
+    cout << "Active Policies for Client ID " << clientId << ":\n";
     bool hasPolicies = false;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         hasPolicies = true;
         int id = sqlite3_column_int(stmt, 0);
-        cout << "Policy ID: " << id << endl;
+        string policyNumber = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        string startDate = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+        string status = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        double totalPremium = sqlite3_column_double(stmt, 4);
+
+        cout << "Policy ID: " << id << ", Policy Number: " << policyNumber
+             << ", Start Date: " << startDate << ", Status: " << status
+             << ", Total Premium: Rs." << totalPremium << endl;
     }
 
     if (!hasPolicies) {
-        cout << "No active policies found.\n";
+        cout << "No active policies found for this client.\n";
         sqlite3_finalize(stmt);
         return;
     }

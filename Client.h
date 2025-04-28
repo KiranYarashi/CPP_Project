@@ -8,7 +8,7 @@ public:
     void listClients();
     int selectClient();
     void clientDashboard(int clientId);  
-    void makePayment();
+    void makePayment(int clientId);
 };
  
 #endif
